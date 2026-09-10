@@ -1,0 +1,66 @@
+﻿<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:;">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <title>Balatro</title>
+    <style>
+      body { font-family: arial; margin: 0; padding: 0; background-color: #000; color: #fff; overflow: hidden; }
+      #canvas { position: absolute; top: 0px; left: 0px; margin: 0px; width: 100%; height: 100%; overflow: hidden; display: block; border: 0px none; }
+      #status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; text-align: center; color: #00ffcc; }
+    </style>
+  </head>
+  <body>
+    <div id="status">Initializing engine...</div>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+
+    <script type="text/javascript">
+      var statusElement = document.getElementById('status');
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: function(text) { console.log(text); },
+        printErr: function(text) { console.error(text); },
+        canvas: (function() { return document.getElementById('canvas'); })(),
+        setStatus: function(text) {
+          if (statusElement) statusElement.innerHTML = text;
+        }
+      };
+
+      Module.preRun.push(function() {
+        Module.addRunDependency('datafile_game.data');
+        Module.setStatus('Downloading game assets (54 MB)...');
+
+        fetch('game.data')
+          .then(function(response) {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.arrayBuffer();
+          })
+          .then(function(buf) {
+            var FS_create = (typeof FS !== 'undefined' && FS.createDataFile) ? FS.createDataFile : Module['FS_createDataFile'];
+            FS_create('/', 'game.data', new Uint8Array(buf), true, true, true);
+            console.log('Mounted game.data to virtual FS!');
+            Module.setStatus('Launching Balatro...');
+            Module.removeRunDependency('datafile_game.data');
+          })
+          .catch(function(err) {
+            console.error('Failed to load game.data:', err);
+            Module.setStatus('Failed to load game assets.');
+          });
+      });
+
+      function launchEngine() {
+        if (typeof Love === 'function') {
+          Love(Module);
+        } else if (typeof Module === 'function') {
+          Module(Module);
+        } else {
+          console.warn('Love factory not detected, engine should auto-run.');
+        }
+      }
+    </script>
+    <script type="text/javascript" src="love.js" onload="launchEngine()"></script>
+  </body>
+</html>
